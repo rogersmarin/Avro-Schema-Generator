@@ -224,26 +224,29 @@ public class AvroSchemagenPlugin extends Plugin {
 		Set<Node> allNodes = new HashSet<Node>(nodesByName.values());
 		List<NamedAvroType> sequence = new ArrayList<NamedAvroType>();
 
-		while (!allNodes.isEmpty()) {
-			Set<Node> removals = new HashSet<Node>();
-			
-			for (Node node : allNodes) {
-				if (node.parents.isEmpty()) {
-					sequence.add(node.type);
-
-					for (Node child : node.children) {
-						child.parents.remove(node);
-					}
-					
-					removals.add(node);
-				}
-			}
-			
-			allNodes.removeAll(removals);
-		}
+		// resolve nested dependencies and circular references
+                resolveNestedDependencies(allNodes, sequence);
 
 		return sequence;
 	}
+	
+         /*
+            Resolving nested type dependencies and checking for circular references
+         */
+        private void resolveNestedDependencies(Set<Node> allNodes, List<NamedAvroType> sequence){
+	         for (Node node : allNodes) {
+	            if (node.parents.isEmpty()) {
+	                if(!sequence.contains(node.type))sequence.add(node.type);
+	                  for (Node child : node.children) {
+	                      child.parents.remove(node);
+	                  }
+	                  node.children.remove(node);
+	                  resolveNestedDependencies(node.children, sequence);
+	            }else{
+	                node.parents.remove(node);
+	            }
+	         }
+       }
 
 	/*
 		Write the actual schema files. Uses a counter to keep files ordered on the filesystem,
